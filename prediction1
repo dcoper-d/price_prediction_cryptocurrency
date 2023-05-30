@@ -1,0 +1,51 @@
+import pandas as pd
+from datetime import datetime
+from sklearn.ensemble import RandomForestRegressor
+
+
+def predict_new_lines(table):
+    # Convert dates to string format
+    table['Date'] = pd.to_datetime(table['Date']).dt.strftime('%d/%m/%Y')
+
+    # Get numeric values of dates
+    dates = table['Date'].tolist()
+    numerical_dates = [datetime.strptime(date, "%d/%m/%Y").toordinal() for date in dates]
+
+    # Create a new DataFrame to store the predictions
+    predicted_table = pd.DataFrame(columns=table.columns)
+
+    # Make predictions for each column
+    for column in table.columns[1:]:
+        prices = table[column].tolist()
+
+        # Create a Random Forest Regression Model
+        model = RandomForestRegressor()
+        model.fit([[date] for date in numerical_dates], prices)
+
+        # predict next value
+        next_date = max(numerical_dates) + 1
+        next_price = model.predict([[next_date]])
+
+        # Create a new row with the prediction
+        predicted_row = [datetime.fromordinal(next_date)] + [next_price] * (len(table.columns) - 1)
+
+        # Add the new row to the predictions DataFrame
+        predicted_table.loc[len(predicted_table)] = predicted_row
+
+    # Concatenate the original DataFrame with the predictions DataFrame
+    table_with_predictions = pd.concat([table, predicted_table], ignore_index=True)
+
+    return table_with_predictions
+
+
+# Upload the excel file
+excel_file = 'path_of_the_file_excel.xlsx'
+sheet_name = 'table'
+df = pd.read_excel(excel_file, sheet_name=sheet_name)
+
+# make predictions
+table_with_predictions = predict_new_lines(df)
+
+# Save the result in a new excel file
+output_file = 'precio_predictivo.xlsx'
+table_with_predictions.to_excel(output_file, index=False)
